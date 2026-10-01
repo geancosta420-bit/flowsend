@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FlowSend
 
-## Getting Started
+CRM, prospecção e campanhas com WhatsApp para transformar contatos em oportunidades.
 
-First, run the development server:
+**Transforme contatos em oportunidades de vendas pelo WhatsApp.**
+
+> MVP local de workspace único. Contatos, campanhas, conversas, usuários e fila ficam persistidos no arquivo `.data/flowsend.json`. O dashboard ainda usa indicadores demonstrativos. A Evolution API recebe credenciais somente no servidor.
+
+## Stack
+
+Next.js 16, React 19, TypeScript, Tailwind CSS 3, Recharts, Lucide React e Zod.
+
+## Instalação e execução
 
 ```bash
+cd flowsend
+npm install
+Copy-Item .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Antes de iniciar, defina `FLOWSEND_AUTH_SECRET` em `.env.local` com um valor aleatório privado de pelo menos 32 bytes. No primeiro acesso, abra http://localhost:3000/login e crie a conta administradora inicial. Depois, use **Usuários** no menu para cadastrar contas e definir o perfil. Senhas iniciais devem ser compartilhadas manualmente. Todos os usuários pertencem ao mesmo workspace local. Em outro terminal, execute `npm run worker` para processar campanhas. O worker exige Evolution configurada e arquivo local inicializado pela aplicação. Para validar: `npm run lint` e `npm run build`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Evolution API
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Defina no `.env.local`:
 
-## Learn More
+```env
+EVOLUTION_API_URL=http://localhost:8081
+EVOLUTION_API_KEY=sua-chave
+EVOLUTION_INSTANCE_NAME=flowsend-comercial
+EVOLUTION_WEBHOOK_SECRET=segredo-opcional
+EVOLUTION_CREATE_UNKNOWN_CONTACTS=false
+FLOWSEND_DATA_DIR=.data
+```
 
-To learn more about Next.js, take a look at the following resources:
+A URL pode apontar para uma instalação local ou outro endereço acessível pelo processo Node do FlowSend. Reinicie o servidor depois de alterar variáveis. Em **Integrações**, teste a conexão, crie/selecione a instância, solicite QR Code e consulte o status. Rotas server-side fazem chamadas para a API e a chave nunca segue ao navegador. O adapter usa rotas comuns da Evolution API v2: `instance/create`, `instance/connect`, `instance/connectionState` e `message/sendText`; instalações com versão/configuração diferentes podem exigir ajuste do adapter.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Configure o webhook da Evolution para `POST /api/webhooks/evolution`. O handler valida o segredo opcional, persiste mensagens recebidas, atualiza o CRM e respeita opt-out. Para criar contato ao receber mensagem de número desconhecido, use `EVOLUTION_CREATE_UNKNOWN_CONTACTS=true`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+A integração Baileys é não oficial e pode sofrer desconexões ou limitações do WhatsApp. Faça contato somente com consentimento, respeite opt-outs e políticas aplicáveis. O FlowSend exclui opt-outs da fila e verifica novamente antes de cada envio e não implementa técnicas de evasão.
 
-## Deploy on Vercel
+## Funcionalidades atuais
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Dashboard com métricas, funil, gráfico e campanhas demonstrativas.
+- Contatos: busca, criação/edição, seleção e exclusão, bloqueio de mensagens, importação CSV com descarte de duplicados/números inválidos, exportação; armazenamento JSON local no servidor.
+- Campanhas: wizard de cinco etapas para objetivo, público, mensagem/variáveis, configuração e revisão. Campanhas são persistidas e enfileiradas no arquivo local; worker separado envia, limita, agenda, pausa e cancela mensagens.
+- CRM kanban ligado aos contatos persistidos, com mudança de estágio por arrastar e soltar e timeline de mensagens.
+- Acesso: primeiro login cria o administrador; administradores cadastram, redefinem senhas e desativam usuários em **Usuários**. As senhas são derivadas com scrypt e sessões usam cookie HTTP-only assinado.
+- Inbox envia pela Evolution API e recebe atualizações em tempo real via Server-Sent Events após os webhooks `MESSAGES_UPSERT` e `MESSAGES_UPDATE`. Para o ambiente local com Docker Desktop, o webhook usa `http://host.docker.internal:3000/api/webhooks/evolution`; as instâncias locais foram configuradas. Respostas iniciais são marcadas como demonstração.
+- Agendamentos consultam e cancelam campanhas salvas. Listas com tags segmentam contatos e podem ser usadas na criação de campanhas; templates podem ser criados, editados e reutilizados. Configurações do workspace são persistidas no servidor.
+- Provider `MessagingProvider` com implementação `EvolutionProvider`; worker local consome fila fora de requests HTTP; Redis/BullMQ seguem como evolução para multiinstância/produção.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Estrutura
+
+```text
+src/app/                 Páginas e rotas server-side
+src/app/api/evolution/   Teste, instância, QR, status e envio
+src/app/api/webhooks/    Entrada de eventos Evolution
+src/components/layout/   Sidebar e shell responsivos
+src/lib/providers/       Interface de mensageria e Evolution
+src/lib/queue/           Contrato futuro para BullMQ/Redis
+src/lib/data.ts          Dados demonstrativos claramente separados
+src/types/               Tipos compartilhados
+```
+
+## Próximas fases
+
+1. Migrar o armazenamento local para PostgreSQL/Prisma e implementar workspaces separados, convites por e-mail e recuperação de senha.
+2. Migrar o worker/armazenamento JSON local para Redis/BullMQ e PostgreSQL com auditoria para uso concorrente/produção.
+3. Usar Redis Pub/Sub para distribuir eventos da inbox entre múltiplos processos/instâncias e ampliar a reconciliação de eventos de entrega.
+4. Adicionar auditoria de acessos e administração segura de múltiplos workspaces e instâncias.

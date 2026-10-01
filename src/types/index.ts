@@ -1,0 +1,8 @@
+export type ContactStatus = "Novo" | "Contatado" | "Respondeu" | "Interessado" | "Proposta" | "Negociação" | "Cliente" | "Sem interesse";
+export interface Contact { id: string; name: string; phone: string; company: string; email: string; city: string; segment: string; status: ContactStatus; tags: string[]; notes?: string; optedIn?: boolean; optedOut: boolean; lastContact: string }
+export interface Campaign { id:string; name:string; objective:string; audience:string; sent:number; total:number; replies:number; status:"Ativa"|"Agendada"|"Concluída"|"Pausada"|"Cancelada"; date:string; message?:string; contactIds?:string[]; instanceName?:string; minIntervalSeconds?:number; dailyLimit?:number; startTime?:string; endTime?:string; weekdays?:number[]; pauseOnReply?:boolean; scheduledAt?:string }
+export interface Message { id:string; contactId:string; direction:"in"|"out"; text:string; time:string; status:string; campaign?:string; providerMessageId?:string }
+export interface CampaignMessageJob { id:string;campaignId:string;contactId:string;status:"pending"|"processing"|"sent"|"delivered"|"read"|"failed"|"cancelled"|"skipped";attempts:number;scheduledAt:string;sentAt?:string;error?:string;providerMessageId?:string }
+export interface WhatsAppInstance { id:string; name:string; phone:string; provider:"evolution"|"whatsapp-cloud"; status:"connected"|"connecting"|"disconnected"|"error"; createdAt:string; updatedAt:string }
+export interface ContactList {id:string;name:string;tag:string;createdAt:string}
+export interface MessageTemplate {id:string;name:string;category:string;text:string;favorite:boolean;createdAt:string}

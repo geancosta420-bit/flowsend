@@ -2,6 +2,7 @@
 import {useState} from "react";
 import Image from "next/image";
 import {Check,LoaderCircle,Plug,QrCode,RefreshCw,ShieldCheck,Smartphone,Wifi} from "lucide-react";
+import {notifyBillingUpdated,notifyPlanLimit} from "@/lib/billing/client";
 
 type AnyData=Record<string,unknown>;
 
@@ -22,7 +23,7 @@ export default function Integrations(){
    else if(kind==="qr")response=await fetch("/api/evolution/qrcode",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instanceName:instance})});
    else response=await fetch(`/api/evolution/status?instanceName=${encodeURIComponent(instance)}`);
    const data=await response.json();setResult(data);
-   if(!response.ok)throw new Error(data.error||data.message||"Falha na solicitação.");
+   if(!response.ok){if(data.code==="PLAN_LIMIT")notifyPlanLimit(data.error||"Limite do plano atingido.");throw new Error(data.error||data.message||"Falha na solicitação.");}notifyBillingUpdated();
    setMessage(kind==="test"?String(data.message||"Conexão estabelecida."):kind==="send"?"Mensagem de teste enviada.":kind==="instance"?"Instância criada ou localizada.":kind==="qr"?"QR Code solicitado.":"Status atualizado.");
   }catch(e){setMessage(e instanceof Error?e.message:"Não foi possível conectar.");}
   finally{setBusy("");}

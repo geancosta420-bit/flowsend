@@ -28,7 +28,13 @@ async function lock() {
   throw new Error("Armazenamento ocupado por mais de 5 segundos.");
 }
 async function readDb() {
-  try { return JSON.parse(await readFile(storeFile,"utf8")); }
+  try {
+    const db=JSON.parse(await readFile(storeFile,"utf8"));
+    const period=new Date().toISOString().slice(0,7);
+    db.subscription ||= {plan:"STARTER",maxWhatsapp:1,maxMessages:2000,maxProspects:50,messagesUsed:0,prospectsUsed:0,reservedMessages:0,usagePeriod:period};
+    if(db.subscription.usagePeriod!==period) Object.assign(db.subscription,{messagesUsed:0,prospectsUsed:0,reservedMessages:0,usagePeriod:period});
+    return db;
+  }
   catch { throw new Error("Inicie a aplicação e crie o arquivo .data/flowsend.json antes de iniciar o worker."); }
 }
 async function mutate(fn) {
@@ -40,6 +46,7 @@ async function mutate(fn) {
   } finally { await release(); }
 }
 const localMinute=date=>date.getHours()*60+date.getMinutes();
+const nextUsageMonth=date=>new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,1));
 function isAllowed(date,campaign) {
   const weekdays=campaign.weekdays||[1,2,3,4,5];
   const minute=localMinute(date); const [startH,startM]=(campaign.startTime||"09:00").split(":").map(Number); const [endH,endM]=(campaign.endTime||"18:00").split(":").map(Number);
@@ -72,10 +79,11 @@ async function takeJob() {
       if(campaign.status!=="Ativa")continue;
       const contact=db.contacts.find(row=>row.id===job.contactId);
       if(!contact||contact.optedIn!==true||contact.optedOut){job.status="skipped";job.error="Contato sem consentimento registrado ou com opt-out ativo.";continue;}
+      if(db.subscription.messagesUsed+db.subscription.reservedMessages>=db.subscription.maxMessages){job.scheduledAt=nextUsageMonth(now).toISOString();continue;}
       const sentToday=db.messages.filter(message=>message.campaign===campaign.id&&message.status==="sent"&&new Date(message.time).toDateString()===now.toDateString()).length;
       if(sentToday>=(campaign.dailyLimit||250)) {job.scheduledAt=nextAllowed(new Date(now.getTime()+60_000),campaign).toISOString();continue;}
       if(!isAllowed(now,campaign)){job.scheduledAt=nextAllowed(now,campaign).toISOString();continue;}
-      job.status="processing";job.attempts++;return {job:{...job},campaign:{...campaign},contact:{...contact}};
+      job.status="processing";job.attempts++;db.subscription.reservedMessages++;return {job:{...job},campaign:{...campaign},contact:{...contact}};
     }
     return null;
   });
@@ -84,7 +92,9 @@ async function finish(jobId, outcome) {
   await mutate(db=>{
     const job=db.jobs.find(row=>row.id===jobId); if(!job)return;
     const campaign=db.campaigns.find(row=>row.id===job.campaignId);
+    db.subscription.reservedMessages=Math.max(0,db.subscription.reservedMessages-1);
     if(outcome.ok) {
+      db.subscription.messagesUsed++;
       job.status="sent";job.sentAt=new Date().toISOString();job.providerMessageId=outcome.messageId;
       db.messages.push({id:randomUUID(),contactId:job.contactId,direction:"out",text:outcome.text,time:job.sentAt,status:"sent",campaign:job.campaignId,providerMessageId:outcome.messageId});
       if(campaign)campaign.sent++;

@@ -36,6 +36,7 @@ yarn-error.log*
 
 # Previous create-next-app starter retained locally during FlowSend import
 /app-next-template/
+/.data/
 
 # vercel
 .vercel

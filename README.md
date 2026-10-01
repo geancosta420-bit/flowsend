@@ -50,6 +50,7 @@ A integração Baileys é não oficial e pode sofrer desconexões ou limitaçõe
 - Inbox envia pela Evolution API e recebe atualizações em tempo real via Server-Sent Events após os webhooks `MESSAGES_UPSERT` e `MESSAGES_UPDATE`. Para o ambiente local com Docker Desktop, o webhook usa `http://host.docker.internal:3000/api/webhooks/evolution`; as instâncias locais foram configuradas. Respostas iniciais são marcadas como demonstração.
 - Agendamentos consultam e cancelam campanhas salvas. Listas com tags segmentam contatos e podem ser usadas na criação de campanhas; templates podem ser criados, editados e reutilizados. Configurações do workspace são persistidas no servidor.
 - Provider `MessagingProvider` com implementação `EvolutionProvider`; worker local consome fila fora de requests HTTP; Redis/BullMQ seguem como evolução para multiinstância/produção.
+- Planos Starter, Pro e Scale com preços e cotas mensais no workspace, contagem de mensagens enviadas/prospects adicionados e instâncias conectadas, bloqueios no backend, aviso de upgrade e ativação manual restrita a administradores após confirmação do pagamento. A cobrança online ainda não está integrada.
 
 ## Estrutura
 
@@ -66,7 +67,8 @@ src/types/               Tipos compartilhados
 
 ## Próximas fases
 
-1. Migrar o armazenamento local para PostgreSQL/Prisma e implementar workspaces separados, convites por e-mail e recuperação de senha.
-2. Migrar o worker/armazenamento JSON local para Redis/BullMQ e PostgreSQL com auditoria para uso concorrente/produção.
-3. Usar Redis Pub/Sub para distribuir eventos da inbox entre múltiplos processos/instâncias e ampliar a reconciliação de eventos de entrega.
-4. Adicionar auditoria de acessos e administração segura de múltiplos workspaces e instâncias.
+1. Integrar um provedor de cobrança para assinatura e renovação automáticas; a ativação de plano hoje é manual pelo administrador após confirmação do pagamento.
+2. Migrar o armazenamento local para PostgreSQL/Prisma e implementar workspaces separados, convites por e-mail e recuperação de senha.
+3. Migrar o worker/armazenamento JSON local para Redis/BullMQ e PostgreSQL com auditoria para uso concorrente/produção.
+4. Usar Redis Pub/Sub para distribuir eventos da inbox entre múltiplos processos/instâncias e ampliar a reconciliação de eventos de entrega.
+5. Adicionar auditoria de acessos e administração segura de múltiplos workspaces e instâncias.

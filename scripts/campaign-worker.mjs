@@ -1,7 +1,8 @@
 import {mkdir, readFile, rename, rm, stat, writeFile} from "node:fs/promises";
 import path from "node:path";
 import {randomUUID} from "node:crypto";
-import {loadEnvConfig} from "@next/env";
+import nextEnv from "@next/env";
+const {loadEnvConfig}=nextEnv;
 
 loadEnvConfig(process.cwd());
 const dataDirectory = process.env.FLOWSEND_DATA_DIR || path.join(process.cwd(), ".data");

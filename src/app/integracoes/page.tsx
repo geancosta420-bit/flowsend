@@ -8,8 +8,13 @@ type AnyData=Record<string,unknown>;
 
 function extractQr(data:AnyData|null){
  const instance=data?.instance&&typeof data.instance==="object"?data.instance as AnyData:null;
- const value=data?.base64||data?.code||data?.qrcode||instance?.base64||instance?.code||instance?.qrcode||"";
+ const value=data?.base64||data?.code||data?.qrcode||data?.qr||data?.pairingCode||instance?.base64||instance?.code||instance?.qrcode||instance?.qr||"";
  return typeof value==="string"?value:typeof value==="object"&&value!==null?String((value as AnyData).base64||(value as AnyData).code||""):"";
+}
+
+function connectionState(data:AnyData|null){
+ const instance=data?.instance&&typeof data.instance==="object"?data.instance as AnyData:null;
+ return String(data?.normalizedState||data?.state||data?.status||data?.connectionStatus||instance?.state||instance?.status||instance?.connectionStatus||"").toLowerCase();
 }
 
 export default function Integrations(){
@@ -34,15 +39,16 @@ export default function Integrations(){
    else response=await fetch(`/api/evolution/status?instanceName=${encodeURIComponent(instance)}`,options);
    const data=await response.json();
    if(!response.ok){if(data.code==="PLAN_LIMIT")notifyPlanLimit(data.error||"Limite do plano atingido.");throw new Error(data.error||data.message||"Falha na solicitação.");}
-   if(kind==="qr"&&!extractQr(data))throw new Error(String(data.message||"A Evolution API não retornou o QR Code. Tente solicitar novamente."));
-   setResult(data);setMessageType("success");notifyBillingUpdated();
-   setMessage(kind==="test"?String(data.message||"Conexão estabelecida."):kind==="send"?"Mensagem de teste enviada.":kind==="instance"?"Instância criada ou localizada.":kind==="qr"?"QR Code solicitado.":"Status atualizado.");
+   if(kind==="qr"&&!extractQr(data)&&!data.alreadyConnected)throw new Error(String(data.message||"A Evolution API respondeu sem QR Code. Consulte o status da instância e tente novamente."));
+   setResult(data);setMessageType(data.warning?"error":"success");notifyBillingUpdated();
+   setMessage(data.warning?`Instância disponível, mas o webhook não foi configurado: ${String(data.warning)}`:kind==="test"?String(data.message||"Conexão estabelecida."):kind==="send"?"Mensagem de teste enviada.":kind==="instance"?data.alreadyExists?"A instância já existia na Evolution API e foi localizada.":"Instância criada ou localizada.":kind==="qr"?data.alreadyConnected?"Esta instância já está conectada. Não é necessário gerar QR Code.":"QR Code solicitado.":"Status atualizado.");
   }catch(e){setMessageType("error");setMessage(e instanceof Error&&e.name==="TimeoutError"?"A solicitação expirou. Verifique a conexão com a Evolution API e tente novamente.":e instanceof Error?e.message:"Não foi possível conectar.");}
   finally{setBusy("");setQrLoading(false);}
  }
  const qr=extractQr(result);
  const account=result?.account as AnyData|undefined;
- const connected=JSON.stringify(result||{}).toLowerCase().includes("\"state\":\"open\"");
+ const state=connectionState(result);
+ const connected=Boolean(result?.alreadyConnected)||state.includes("open")||state.includes("connected");
  return <>
   <div className="page-heading"><div><div className="eyebrow">CANAIS DE COMUNICAÇÃO</div><h1>Integrações</h1><p>Conecte seus canais e gerencie os números usados na operação.</p></div></div>
   <section className="integration-card">

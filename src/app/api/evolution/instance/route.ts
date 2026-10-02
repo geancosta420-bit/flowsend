@@ -25,10 +25,40 @@ export async function POST(req: NextRequest) {
     });
 
     const provider = new EvolutionProvider();
-    const result = reservation.created ? await provider.createInstance(instanceName) : await provider.getInstanceStatus(instanceName);
-    await provider.configureContactWebhook(instanceName);
-    await registerInstanceInFastify({ provider: "EVOLUTION", instanceName, status: "CONNECTING" });
-    return NextResponse.json(result, { status: 200 });
+    let result: unknown;
+    let alreadyExists = false;
+    if (reservation.created) {
+      try {
+        result = await provider.createInstance(instanceName);
+      } catch (createError) {
+        // The local store can be empty after a reset while the provider still has
+        // the instance. If its status endpoint recognizes it, reuse it instead of
+        // leaving the UI stuck on a duplicate-instance error.
+        try {
+          result = await provider.getInstanceStatus(instanceName);
+          alreadyExists = true;
+        } catch {
+          throw createError;
+        }
+      }
+    } else result = await provider.getInstanceStatus(instanceName);
+
+    let webhookWarning: string | undefined;
+    try { await provider.configureContactWebhook(instanceName); }
+    catch (error) {
+      webhookWarning = error instanceof Error ? error.message : "Não foi possível configurar o webhook da Evolution.";
+      console.error("[evolution:instance] instância criada/localizada, mas webhook não configurado", error);
+    }
+    const payload = result && typeof result === "object" ? result as Record<string, unknown> : {};
+    const nested = payload.instance && typeof payload.instance === "object" ? payload.instance as Record<string, unknown> : {};
+    const state = String(payload.state || payload.status || payload.connectionStatus || nested.state || nested.status || nested.connectionStatus || "").toLowerCase();
+    const instanceStatus = state.includes("open") || state.includes("connected") ? "CONNECTED" : state.includes("close") || state.includes("disconnect") ? "DISCONNECTED" : "CONNECTING";
+    await updateStore((store) => {
+      const local = store.instances.find((item) => item.name.toLowerCase() === instanceName.toLowerCase());
+      if (local) { local.status = instanceStatus.toLowerCase() as typeof local.status; local.updatedAt = new Date().toISOString(); }
+    });
+    await registerInstanceInFastify({ provider: "EVOLUTION", instanceName, status: instanceStatus });
+    return NextResponse.json({ ...(result && typeof result === "object" ? result : { result }), instanceName, alreadyExists, ...(webhookWarning ? { warning: webhookWarning } : {}) }, { status: 200 });
   } catch (error) {
     if (reservation?.created) {
       await updateStore((store) => { store.instances = store.instances.filter((instance) => instance.id !== reservation?.id); });

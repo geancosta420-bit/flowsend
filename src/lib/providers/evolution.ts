@@ -4,9 +4,9 @@ export class EvolutionProvider implements MessagingProvider {
  private key=process.env.EVOLUTION_API_KEY;
  private async request(path:string,method="GET",body?:unknown){
   if(!this.base||!this.key) throw new Error("Configure EVOLUTION_API_URL e EVOLUTION_API_KEY no servidor.");
-  const response=await fetch(`${this.base}${path}`,{method,headers:{"Content-Type":"application/json","apikey":this.key},body:body===undefined?undefined:JSON.stringify(body),cache:"no-store"});
+  const response=await fetch(`${this.base}${path}`,{method,headers:{"Content-Type":"application/json","apikey":this.key},body:body===undefined?undefined:JSON.stringify(body),cache:"no-store",signal:AbortSignal.timeout(25_000)});
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(typeof data.message==="string"?data.message:`Evolution API retornou ${response.status}`);
+  if(!response.ok){const payload=data as Record<string,unknown>;const messages=Array.isArray(payload.message)?payload.message.filter((item):item is string=>typeof item==="string").join(" "):typeof payload.message==="string"?payload.message:"";const detail=messages||String(payload.error||payload.response||"");const error=new Error(detail?`Evolution API (${response.status}): ${detail}`:`Evolution API retornou HTTP ${response.status}.`) as Error&{status?:number};error.status=response.status;throw error;}
   return data;
  }
  async createInstance(instanceName:string){return this.request("/instance/create","POST",{instanceName,qrcode:true,integration:"WHATSAPP-BAILEYS"});}

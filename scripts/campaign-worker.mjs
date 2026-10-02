@@ -119,6 +119,10 @@ async function finish(jobId, outcome) {
     }
     if(job.attempts<3&&outcome.retryable&&campaign?.status==="Ativa") {job.status="pending";job.scheduledAt=new Date(Date.now()+60_000).toISOString();job.error=outcome.error;return;}
     job.status="failed";job.error=outcome.error;
+    if(campaign?.status==="Ativa") {
+      const next=db.jobs.filter(row=>row.campaignId===campaign.id&&row.status==="pending").sort((x,y)=>Date.parse(x.scheduledAt)-Date.parse(y.scheduledAt))[0];
+      if(next) next.scheduledAt=new Date(Date.now()+Math.max(1000,Number(campaign.minIntervalSeconds||20)*1000)).toISOString();
+    }
   });
 }
 function reportPeriod(now, frequency) {

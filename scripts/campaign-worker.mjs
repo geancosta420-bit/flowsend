@@ -82,7 +82,10 @@ async function takeJob() {
       if(!contact||contact.optedIn!==true||contact.optedOut){job.status="skipped";job.error="Contato sem consentimento registrado ou com opt-out ativo.";continue;}
       if(db.subscription.messagesUsed+db.subscription.reservedMessages>=db.subscription.maxMessages){job.scheduledAt=nextUsageMonth(now).toISOString();continue;}
       const sentToday=db.messages.filter(message=>message.campaign===campaign.id&&message.status==="sent"&&new Date(message.time).toDateString()===now.toDateString()).length;
-      if(sentToday>=(campaign.dailyLimit||250)) {job.scheduledAt=nextAllowed(new Date(now.getTime()+60_000),campaign).toISOString();continue;}
+      const campaignStart=Date.parse(campaign.scheduledAt||now.toISOString());
+      const elapsedDays=Math.max(0,Math.floor((Date.now()-campaignStart)/86400000));
+      const dailyLimit=Math.floor((campaign.dailyLimit||250)*(campaign.rampDaily20?1+elapsedDays*0.2:1));
+      if(sentToday>=dailyLimit) {job.scheduledAt=nextAllowed(new Date(now.getTime()+60_000),campaign).toISOString();continue;}
       if(!isAllowed(now,campaign)){job.scheduledAt=nextAllowed(now,campaign).toISOString();continue;}
       job.status="processing";job.attempts++;db.subscription.reservedMessages++;return {job:{...job},campaign:{...campaign},contact:{...contact}};
     }
@@ -100,6 +103,18 @@ async function finish(jobId, outcome) {
       db.messages.push({id:randomUUID(),contactId:job.contactId,direction:"out",text:outcome.text,time:job.sentAt,status:"sent",campaign:job.campaignId,providerMessageId:outcome.messageId});
       if(campaign)campaign.sent++;
       const contact=db.contacts.find(row=>row.id===job.contactId);if(contact)contact.lastContact=new Date().toLocaleString("pt-BR");
+      if(campaign?.status==="Ativa") {
+        const next=db.jobs.filter(row=>row.campaignId===campaign.id&&row.status==="pending").sort((x,y)=>Date.parse(x.scheduledAt)-Date.parse(y.scheduledAt))[0];
+        if(next) {
+          const min=Math.max(1,Number(campaign.minIntervalSeconds||20));
+          const max=Math.max(min,Number(campaign.maxIntervalSeconds||min));
+          const dynamicDelay=Math.floor(min*1000+Math.random()*(max-min)*1000);
+          const pauseEvery=Number(campaign.pauseEveryMessages||0);
+          const pauseMinutes=Number(campaign.pauseMinutes||0);
+          const cooldown=pauseEvery>0&&campaign.sent%pauseEvery===0?pauseMinutes*60*1000:0;
+          next.scheduledAt=new Date(Date.now()+Math.max(dynamicDelay,cooldown)).toISOString();
+        }
+      }
       return;
     }
     if(job.attempts<3&&outcome.retryable&&campaign?.status==="Ativa") {job.status="pending";job.scheduledAt=new Date(Date.now()+60_000).toISOString();job.error=outcome.error;return;}
@@ -145,8 +160,7 @@ async function run() {
       if(!response.ok)throw Object.assign(new Error(data.message||`Evolution API retornou HTTP ${response.status}`),{retryable:response.status===429||response.status>=500});
       const key=data.key||{};
       await finish(job.id,{ok:true,text:job.text,messageId:key.id||data.messageId});
-      console.info(`Enviado ${campaign.name} → ${contact.name}`);
-      await sleep(Math.max(1000,(campaign.minIntervalSeconds||30)*1000));
+      console.info(`Enviado ${campaign.name} → ${contact.name} via ${job.instanceName||campaign.instanceName}`);
     } catch(error) {
       await finish(job.id,{ok:false,error:error.message||"Falha no envio",retryable:Boolean(error.retryable)});
       console.error(`Falha ${campaign.name} → ${contact.name}: ${error.message}`);

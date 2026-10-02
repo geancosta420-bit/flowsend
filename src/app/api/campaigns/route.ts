@@ -9,9 +9,14 @@ const campaignSchema = z.object({
   objective: z.string().min(1),
   audience: z.string().min(1),
   message: z.string().trim().min(1).max(4000),
-  instanceName: z.string().trim().min(2).max(80).regex(/^[\w-]+$/),
-  minIntervalSeconds: z.number().int().min(20).max(3600),
+  instanceName: z.string().trim().min(2).max(80).regex(/^[\w-]+$/).optional(),
+  instanceNames: z.array(z.string().trim().min(2).max(80).regex(/^[\w-]+$/)).min(1).max(20).optional(),
+  minIntervalSeconds: z.number().int().min(1).max(3600),
+  maxIntervalSeconds: z.number().int().min(1).max(3600),
   dailyLimit: z.number().int().min(1).max(5000),
+  pauseEveryMessages: z.number().int().min(0).max(5000),
+  pauseMinutes: z.number().int().min(0).max(1440),
+  rampDaily20: z.boolean(),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
   weekdays: z.array(z.number().int().min(0).max(6)).min(1),
@@ -26,8 +31,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = campaignSchema.parse(await req.json());
+    if (body.maxIntervalSeconds < body.minIntervalSeconds) throw new Error("O intervalo máximo deve ser maior ou igual ao mínimo.");
+    const instanceNames = [...new Set(body.instanceNames?.length ? body.instanceNames : body.instanceName ? [body.instanceName] : [])];
+    if (!instanceNames.length) throw new Error("Selecione ao menos uma instância.");
+    if (body.pauseEveryMessages > 0 && body.pauseMinutes === 0) throw new Error("Informe a duração da pausa técnica.");
     const campaign = await updateStore((store) => {
-      ensureInstanceSlot(store, body.instanceName);
+      instanceNames.forEach((instanceName) => ensureInstanceSlot(store, instanceName));
       const audience = body.audience.toLocaleLowerCase("pt-BR");
       const contacts = store.contacts.filter((contact) =>
         contact.optedIn === true &&
@@ -62,9 +71,14 @@ export async function POST(req: NextRequest) {
         date: status === "Ativa" ? "Agora" : new Date(scheduledAt).toLocaleString("pt-BR"),
         message: body.message,
         contactIds: contacts.map((contact) => contact.id),
-        instanceName: body.instanceName,
+        instanceName: instanceNames[0],
+        instanceNames,
         minIntervalSeconds: body.minIntervalSeconds,
+        maxIntervalSeconds: body.maxIntervalSeconds,
         dailyLimit: body.dailyLimit,
+        pauseEveryMessages: body.pauseEveryMessages,
+        pauseMinutes: body.pauseMinutes,
+        rampDaily20: body.rampDaily20,
         startTime: body.startTime,
         endTime: body.endTime,
         weekdays: body.weekdays,
@@ -85,9 +99,9 @@ export async function POST(req: NextRequest) {
           contactId: contact.id,
           status: "pending",
           attempts: 0,
-          scheduledAt: new Date(Date.parse(scheduledAt) + index * body.minIntervalSeconds * 1000).toISOString(),
+          scheduledAt: scheduledAt,
           text: personalized,
-          instanceName: body.instanceName,
+          instanceName: instanceNames[index % instanceNames.length],
         };
         store.jobs.push(job);
       });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readStore } from "@/lib/storage/db";
 import { z } from "zod";
 import { PlanLimitError, planLimitPayload } from "@/lib/billing/plans";
 import { EvolutionProvider } from "@/lib/providers/evolution";
@@ -6,6 +7,8 @@ import { updateStore } from "@/lib/storage/db";
 import { registerInstanceInFastify } from "@/lib/contact-sync/client";
 
 const schema = z.object({ instanceName: z.string().min(2).max(80).regex(/^[a-zA-Z0-9_-]+$/) });
+
+export async function GET() { return NextResponse.json((await readStore()).instances); }
 
 export async function POST(req: NextRequest) {
   let reservation: { id: string; created: boolean } | undefined;

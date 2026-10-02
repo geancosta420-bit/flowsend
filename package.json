@@ -7,9 +7,20 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "worker": "node scripts/campaign-worker.mjs"
+    "api": "node server/api.mjs",
+    "worker": "node scripts/worker-all.mjs",
+    "worker:campaigns": "node scripts/campaign-worker.mjs",
+    "worker:contacts": "node scripts/contact-sync-worker.mjs",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "@tanstack/react-query": "^5.104.0",
+    "bullmq": "^5.81.5",
+    "fastify": "^5.12.5",
+    "ioredis": "^5.11.1",
     "lucide-react": "^0.555.0",
     "next": "16.3.6",
     "react": "19.2.8",
@@ -23,6 +34,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "prisma": "^6.19.3",
     "tailwindcss": "3.4.19",
     "typescript": "5.9.3"
   }

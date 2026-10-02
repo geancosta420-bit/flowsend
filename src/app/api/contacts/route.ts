@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { PlanLimitError, planLimitPayload } from "@/lib/billing/plans";
 import { readStore, updateStore } from "@/lib/storage/db";
+import { proxyContactsToFastify } from "@/lib/contact-sync/fastify-proxy";
 import type { Contact } from "@/types";
 
 const phoneSchema = z.string().trim().regex(/^\+?[\d\s().-]{10,20}$/, "Informe um WhatsApp válido.");
@@ -27,6 +28,8 @@ function errorResponse(error: unknown, fallback: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const proxied = await proxyContactsToFastify(req);
+  if (proxied) return proxied;
   const store = await readStore();
   const query = (req.nextUrl.searchParams.get("q") || "").toLocaleLowerCase("pt-BR");
   const status = req.nextUrl.searchParams.get("status");
@@ -37,6 +40,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const proxied = await proxyContactsToFastify(req);
+  if (proxied) return proxied;
   try {
     const body = createSchema.parse(await req.json());
     const contact = await updateStore((store) => {
@@ -54,6 +59,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const proxied = await proxyContactsToFastify(req);
+  if (proxied) return proxied;
   try {
     const body = z.object({ id: z.string().min(1), changes: createSchema.partial() }).parse(await req.json());
     const contact = await updateStore((store) => {
@@ -70,21 +77,28 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const proxied = await proxyContactsToFastify(req);
+  if (proxied) return proxied;
   try {
-    const { contacts } = z.object({ contacts: z.array(createSchema.extend({ id: z.string().min(1), lastContact: z.string().default("—") })).max(10000) }).parse(await req.json());
+    const { contacts } = z.object({ contacts: z.array(createSchema.extend({ id: z.string().min(1).optional(), lastContact: z.string().default("—") })).max(10000) }).parse(await req.json());
     const result = await updateStore((store) => {
       const seen = new Set<string>();
       for (const contact of contacts) {
         const phone = normalize(contact.phone);
-        if (seen.has(phone)) throw new Error("A lista contém WhatsApps duplicados.");
+        if (seen.has(phone)) continue;
         seen.add(phone);
       }
-      const existingIds = new Set(store.contacts.map((contact) => contact.id));
-      const added = contacts.filter((contact) => !existingIds.has(contact.id)).length;
+      const byPhone = new Map(store.contacts.map((contact) => [normalize(contact.phone), contact]));
+      const uniqueContacts = contacts.filter((contact, index) => contacts.findIndex((candidate) => normalize(candidate.phone) === normalize(contact.phone)) === index);
+      const added = uniqueContacts.filter((contact) => !byPhone.has(normalize(contact.phone))).length;
       if (store.subscription.prospectsUsed + added > store.subscription.maxProspects) throw new PlanLimitError("Limite mensal de prospects excedido por esta importação. Faça upgrade do plano.");
       store.subscription.prospectsUsed += added;
-      store.contacts = contacts as Contact[];
-      return store.contacts.length;
+      for (const imported of uniqueContacts) {
+        const existing = byPhone.get(normalize(imported.phone));
+        if (existing) Object.assign(existing, imported, { id: existing.id, status: existing.status, optedOut: existing.optedOut, lastContact: existing.lastContact });
+        else store.contacts.unshift({ ...imported, id: imported.id || crypto.randomUUID(), lastContact: imported.lastContact || "—" } as Contact);
+      }
+      return uniqueContacts.length;
     });
     return NextResponse.json({ saved: result });
   } catch (error) {
@@ -93,6 +107,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const proxied = await proxyContactsToFastify(req);
+  if (proxied) return proxied;
   try {
     const { ids } = z.object({ ids: z.array(z.string()).min(1) }).parse(await req.json());
     const removed = await updateStore((store) => {

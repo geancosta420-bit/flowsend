@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DollarSign, Mail, MapPin, MessageCircle, MoreHorizontal, Phone, Plus, Settings2, Tag, X } from "lucide-react";
 import type { Contact, ContactStatus, Message } from "@/types";
+import { fetchAllContacts } from "@/lib/contacts/fetch-all";
 /* eslint react-hooks/set-state-in-effect: off */
 
 const statuses: ContactStatus[] = ["Novo", "Contatado", "Respondeu", "Interessado", "Proposta", "Negociação", "Cliente", "Sem interesse"];
@@ -20,7 +21,7 @@ export default function CRM() {
   const [labels, setLabels] = useState<string[]>(labelsDefault);
   const [customize, setCustomize] = useState(false);
 
-  useEffect(() => { fetch("/api/contacts").then((response) => response.json()).then(setContacts).catch(() => setToast("Não foi possível carregar contatos.")); }, []);
+  useEffect(() => { fetchAllContacts().then(setContacts).catch(() => setToast("Não foi possível carregar contatos.")); }, []);
   useEffect(() => { try { const saved = localStorage.getItem("flowsend-crm-column-labels"); if (saved) setLabels(JSON.parse(saved)); } catch {} }, []);
   const loadTimeline = useCallback(async (id: string) => { const response = await fetch(`/api/messages?contactId=${encodeURIComponent(id)}`); if (response.ok) setTimeline(await response.json()); }, []);
   useEffect(() => { if (selected) loadTimeline(selected.id).catch(() => setTimeline([])); }, [selected, loadTimeline]);

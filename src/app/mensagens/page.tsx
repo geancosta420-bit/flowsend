@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useState} from "react";import {useRouter} from "next/navigation";
 import {MoreHorizontal,Paperclip,Search,Send,Smile,RefreshCw,Radio} from "lucide-react";
 import type {Contact,Message} from "@/types";
+import {fetchAllContacts} from "@/lib/contacts/fetch-all";
 import {notifyBillingUpdated,notifyPlanLimit} from "@/lib/billing/client";
 /* eslint react-hooks/set-state-in-effect: off */
 
@@ -18,7 +19,7 @@ export default function Inbox(){
  const[query,setQuery]=useState("");
  const[live,setLive]=useState(false);
  const[emojiOpen,setEmojiOpen]=useState(false);
- const loadContacts=useCallback(async()=>{const response=await fetch("/api/contacts");if(response.ok)setContacts(await response.json())},[]);
+ const loadContacts=useCallback(async()=>{setContacts(await fetchAllContacts())},[]);
  const loadMessages=useCallback(async(id:string)=>{if(!id)return;const response=await fetch(`/api/messages?contactId=${encodeURIComponent(id)}`,{cache:"no-store"});if(response.ok)setMessages(await response.json())},[]);
 
  useEffect(()=>{loadContacts().catch(()=>setToast("Não foi possível carregar os contatos."))},[loadContacts]);

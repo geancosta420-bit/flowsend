@@ -10,6 +10,13 @@ export class EvolutionProvider implements MessagingProvider {
   return data;
  }
  async createInstance(instanceName:string){return this.request("/instance/create","POST",{instanceName,qrcode:true,integration:"WHATSAPP-BAILEYS"});}
+ async configureContactWebhook(instanceName:string){
+  const url=process.env.EVOLUTION_WEBHOOK_URL?.trim();
+  if(!url)return null;
+  const secret=process.env.CONTACTS_WEBHOOK_SECRET||process.env.EVOLUTION_WEBHOOK_SECRET;
+  if(!secret)throw new Error("Configure CONTACTS_WEBHOOK_SECRET ou EVOLUTION_WEBHOOK_SECRET para proteger o webhook Evolution.");
+  return this.request(`/webhook/set/${encodeURIComponent(instanceName)}`,"POST",{webhook:{enabled:true,url,webhookByEvents:false,webhookBase64:false,events:["CONNECTION_UPDATE","CONTACTS_SET","CONTACTS_UPSERT","CONTACTS_UPDATE","MESSAGES_UPSERT","MESSAGES_UPDATE"],...(secret?{headers:{"x-webhook-secret":secret}}:{})}});
+ }
  async getInstanceStatus(instanceName:string){return this.request(`/instance/connectionState/${encodeURIComponent(instanceName)}`);}
  async getQRCode(instanceName:string){return this.request(`/instance/connect/${encodeURIComponent(instanceName)}`);}
  async sendText(instanceName:string,number:string,text:string){return this.request(`/message/sendText/${encodeURIComponent(instanceName)}`,"POST",{number,text});}

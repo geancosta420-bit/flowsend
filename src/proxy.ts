@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {SESSION_COOKIE,verifySessionToken} from "@/lib/auth/token";
 import {readStore} from "@/lib/storage/db";
 
-const publicPaths=new Set(["/login","/api/auth/status","/api/auth/setup","/api/auth/login","/api/webhooks/evolution"]);
+const publicPaths=new Set(["/login","/api/auth/status","/api/auth/setup","/api/auth/login","/api/webhooks/evolution","/api/webhooks/waha"]);
 export async function proxy(request:NextRequest){
  const pathname=request.nextUrl.pathname;
  if(publicPaths.has(pathname))return NextResponse.next();

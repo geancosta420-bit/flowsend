@@ -3,6 +3,7 @@ import { z } from "zod";
 import { PlanLimitError, planLimitPayload } from "@/lib/billing/plans";
 import { EvolutionProvider } from "@/lib/providers/evolution";
 import { updateStore } from "@/lib/storage/db";
+import { registerInstanceInFastify } from "@/lib/contact-sync/client";
 
 const schema = z.object({ instanceName: z.string().min(2).max(80).regex(/^[a-zA-Z0-9_-]+$/) });
 
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
 
     const provider = new EvolutionProvider();
     const result = reservation.created ? await provider.createInstance(instanceName) : await provider.getInstanceStatus(instanceName);
+    await provider.configureContactWebhook(instanceName);
+    await registerInstanceInFastify({ provider: "EVOLUTION", instanceName, status: "CONNECTING" });
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     if (reservation?.created) {

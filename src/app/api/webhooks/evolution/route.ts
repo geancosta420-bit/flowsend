@@ -3,16 +3,19 @@ import {randomUUID,timingSafeEqual} from "node:crypto";
 import {updateStore} from "@/lib/storage/db";
 import {publishInboxEvent} from "@/lib/realtime/inbox-events";
 import type {Contact} from "@/types";
+import {forwardEvolutionSyncWebhook} from "@/lib/contact-sync/client";
 
 function sameSecret(a:string,b:string){const left=Buffer.from(a);const right=Buffer.from(b);return left.length===right.length&&timingSafeEqual(left,right)}
 function normalize(value:string){return value.replace(/\D/g,"")}
 function getText(message:Record<string,unknown>){const extended=message.extendedTextMessage as Record<string,unknown>|undefined;const image=message.imageMessage as Record<string,unknown>|undefined;const conversation=message.conversation;return typeof conversation==="string"?conversation:typeof extended?.text==="string"?extended.text:typeof image?.caption==="string"?image.caption:""}
 export async function POST(req:NextRequest){
- const secret=process.env.EVOLUTION_WEBHOOK_SECRET;
+ const secret=process.env.CONTACTS_WEBHOOK_SECRET||process.env.EVOLUTION_WEBHOOK_SECRET;
+ if(!secret)return NextResponse.json({error:"Webhook Evolution sem segredo configurado."},{status:503});
  if(secret){const supplied=req.headers.get("x-webhook-secret")||req.headers.get("authorization")?.replace(/^Bearer\s+/i,"")||"";if(!sameSecret(secret,supplied))return NextResponse.json({error:"Não autorizado."},{status:401})}
  const payload=await req.json().catch(()=>null);
  if(!payload||typeof payload!=="object")return NextResponse.json({error:"Payload inválido."},{status:400});
  const event=String(payload.event||payload.type||"unknown").toLowerCase();
+  try{await forwardEvolutionSyncWebhook(payload,event)}catch{return NextResponse.json({error:"Não foi possível enfileirar a sincronização de contatos."},{status:503})}
  const instance=String(payload.instance||payload.instanceName||"");
  const data=(payload.data&&typeof payload.data==="object"?payload.data:{}) as Record<string,unknown>;
  const key=(data.key&&typeof data.key==="object"?data.key:{}) as Record<string,unknown>;

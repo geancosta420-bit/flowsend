@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationPlan {
+  STARTER
+  PRO
+  SCALE
+}
+
+enum MessagingProvider {
+  EVOLUTION
+  WAHA
+}
+
+enum InstanceStatus {
+  CONNECTED
+  CONNECTING
+  DISCONNECTED
+  ERROR
+}
+
+enum ContactPipelineStatus {
+  NOVO
+  CONTATADO
+  RESPONDEU
+  INTERESSADO
+  PROPOSTA
+  NEGOCIACAO
+  CLIENTE
+  SEM_INTERESSE
+}
+
+model Organization {
+  id           String             @id @default(cuid())
+  name         String
+  plan         OrganizationPlan  @default(STARTER)
+  maxWhatsapp  Int                @default(1)
+  maxMessages  Int                @default(2000)
+  maxProspects Int                @default(50)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  instances    WhatsAppInstance[]
+  contacts     Contact[]
+}
+
+model WhatsAppInstance {
+  id             String            @id @default(cuid())
+  organizationId String
+  provider       MessagingProvider
+  instanceName   String
+  status         InstanceStatus    @default(DISCONNECTED)
+  phone          String            @default("")
+  lastSyncAt     DateTime?
+  lastSyncError  String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts       Contact[]
+
+  @@unique([organizationId, instanceName])
+  @@index([organizationId, status])
+}
+
+model Contact {
+  id             String                @id @default(cuid())
+  organizationId String
+  instanceId     String?
+  remoteJid      String?
+  phone          String
+  phoneNormalized String?
+  name           String
+  company        String                @default("")
+  email          String                @default("")
+  city           String                @default("")
+  segment        String                @default("")
+  status         ContactPipelineStatus @default(NOVO)
+  tags           String[]              @default([])
+  notes          String                @default("")
+  leadValue      Decimal               @default(0) @db.Decimal(12, 2)
+  optedIn        Boolean               @default(false)
+  optedOut       Boolean               @default(false)
+  lastContact    DateTime?
+  source         String                @default("manual")
+  syncedAt       DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  instance       WhatsAppInstance?      @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+
+  @@unique([instanceId, remoteJid])
+  @@unique([instanceId, phoneNormalized])
+  @@index([organizationId, name])
+  @@index([organizationId, updatedAt])
+  @@index([organizationId, status])
+  @@index([organizationId, optedOut])
+}

@@ -15,4 +15,5 @@ export class EvolutionProvider implements MessagingProvider {
  async sendText(instanceName:string,number:string,text:string){return this.request(`/message/sendText/${encodeURIComponent(instanceName)}`,"POST",{number,text});}
  async logout(instanceName:string){return this.request(`/instance/logout/${encodeURIComponent(instanceName)}`,"DELETE");}
  async test(){return this.request("/instance/fetchInstances");}
+ async getInstances(){return this.request("/instance/fetchInstances");}
 }

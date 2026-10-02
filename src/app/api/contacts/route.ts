@@ -13,6 +13,7 @@ const createSchema = z.object({
   city: z.string().max(120).default(""),
   segment: z.string().max(100).default(""),
   notes: z.string().max(2000).optional().default(""),
+  leadValue: z.number().min(0).max(100000000).optional().default(0),
   tags: z.array(z.string().max(40)).default([]),
   status: z.enum(["Novo", "Contatado", "Respondeu", "Interessado", "Proposta", "Negociação", "Cliente", "Sem interesse"]).default("Novo"),
   optedIn: z.boolean().default(false),

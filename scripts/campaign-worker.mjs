@@ -105,9 +105,36 @@ async function finish(jobId, outcome) {
     job.status="failed";job.error=outcome.error;
   });
 }
+function reportPeriod(now, frequency) {
+  if (frequency === "daily") return now.toISOString().slice(0, 10);
+  if (frequency === "monthly") return now.toISOString().slice(0, 7);
+  const monday = new Date(now); monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  return `week-${monday.toISOString().slice(0, 10)}`;
+}
+async function sendScheduledReport() {
+  const db = await readDb(); const settings = db.settings?.reportSchedule;
+  if (!settings?.enabled || !settings.phone || nowLocalHour() < 9) return;
+  const now = new Date(); const period = reportPeriod(now, settings.frequency);
+  if (settings.lastSentPeriod === period) return;
+  if (settings.lastAttemptAt && now.getTime() - Date.parse(settings.lastAttemptAt) < 15 * 60_000) return;
+  const start = settings.frequency === "daily" ? new Date(`${period}T00:00:00.000Z`) : settings.frequency === "monthly" ? new Date(`${period}-01T00:00:00.000Z`) : new Date(`${period.slice(5)}T00:00:00.000Z`);
+  const messages = db.messages.filter(message => message.status !== "demonstration" && Date.parse(message.time) >= start.getTime());
+  const sent = messages.filter(message => message.direction === "out").length;
+  const replies = messages.filter(message => message.direction === "in").length;
+  const text = `Resumo FlowSend (${settings.frequency === "daily" ? "diário" : settings.frequency === "weekly" ? "semanal" : "mensal"})\nMensagens enviadas: ${sent}\nRespostas recebidas: ${replies}\nContatos no CRM: ${db.contacts.length}\nCampanhas ativas: ${db.campaigns.filter(campaign => campaign.status === "Ativa").length}`;
+  try {
+    await mutate(store => { if (store.settings?.reportSchedule) store.settings.reportSchedule.lastAttemptAt = now.toISOString(); });
+    const response = await fetch(`${apiUrl}/message/sendText/${encodeURIComponent(settings.instanceName || process.env.EVOLUTION_INSTANCE_NAME || "flowsend-comercial")}`, { method: "POST", headers: { "Content-Type": "application/json", apikey: apiKey }, body: JSON.stringify({ number: settings.phone.replace(/\D/g, ""), text }) });
+    if (!response.ok) throw new Error(`Evolution API retornou HTTP ${response.status}`);
+    await mutate(store => { if (store.settings?.reportSchedule) store.settings.reportSchedule.lastSentPeriod = period; });
+    console.info(`Resumo de relatório ${period} enviado para ${settings.phone}`);
+  } catch (error) { console.error(`Falha ao enviar resumo ${period}: ${error.message}`); }
+}
+function nowLocalHour() { return new Date().getHours(); }
 async function run() {
   console.info("FlowSend campaign worker iniciado.");
   while(true) {
+    await sendScheduledReport().catch(error => console.error("Falha ao verificar relatório agendado:", error));
     const item=await takeJob();
     if(!item){await sleep(1000);continue;}
     const {job,campaign,contact}=item;

@@ -30,11 +30,13 @@ export default function Integrations(){
  }
  const qrValue=result?.base64||result?.code||result?.qrcode||"";
  const qr=typeof qrValue==="string"?qrValue:typeof qrValue==="object"&&qrValue!==null?String((qrValue as AnyData).base64||(qrValue as AnyData).code||""):"";
+ const account=result?.account as AnyData|undefined;
  const connected=JSON.stringify(result||{}).toLowerCase().includes("\"state\":\"open\"");
  return <>
   <div className="page-heading"><div><div className="eyebrow">CANAIS DE COMUNICAÇÃO</div><h1>Integrações</h1><p>Conecte seus canais e gerencie os números usados na operação.</p></div></div>
   <section className="integration-card">
    <div className="integration-head"><span className="integration-logo"><Smartphone size={20}/></span><div><h2>WhatsApp</h2><p>Evolution API · conexão não oficial</p></div><span className={`status-pill ${connected?"status-green":"status-gray"}`}><i/>{connected?"WhatsApp conectado":"Não conectado"}</span></div>
+   {account&&<div className="connected-profile">{typeof account.profilePictureUrl==="string"&&account.profilePictureUrl&&<Image src={account.profilePictureUrl} alt="Foto de perfil do WhatsApp" width={44} height={44} unoptimized style={{borderRadius:"50%",objectFit:"cover"}}/>}<div><b>{String(account.name||instance)}</b><small>{account.phone?`+${account.phone}`:"Número não retornado pela Evolution API"} · {connected?"Conectado":"Desconectado"}</small></div></div>}
    <div className="warning-box"><b>Sobre esta conexão</b><br/>A Evolution API usa uma integração não oficial baseada em WhatsApp Web/Baileys. A conexão pode sofrer desconexões ou limitações impostas pelo WhatsApp. Use apenas com contatos que autorizaram o recebimento e respeite pedidos de opt-out.</div>
    <div className="integration-fields"><div className="form-field full"><label>Nome da instância</label><input value={instance} onChange={e=>setInstance(e.target.value)} placeholder="flowsend-comercial"/><small className="help-text">A URL e a API Key são configuradas no servidor em .env.local. A chave não é enviada ao navegador.</small></div><div className="connection-state"><ShieldCheck size={15}/> Credenciais mantidas no servidor · Evolution API URL configurável</div></div>
    <div className="integration-foot"><span className="help-text">Configure EVOLUTION_API_URL e EVOLUTION_API_KEY para habilitar a conexão.</span><button className="btn btn-outline" onClick={()=>action("test")} disabled={!!busy}>{busy==="test"?<LoaderCircle size={14}/>:<Wifi size={14}/>} Testar conexão</button></div>

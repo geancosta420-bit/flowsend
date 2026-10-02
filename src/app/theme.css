@@ -96,6 +96,45 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ai-modal { width:min(680px,100%); }
 .spin { animation: flowsend-spin .9s linear infinite; }
 @keyframes flowsend-spin { to { transform: rotate(360deg); } }
+.legal-backdrop { z-index: 90; }
+.legal-modal { width:min(660px,100%); }
+.legal-copy { max-height:35vh; overflow:auto; padding:14px; margin:14px 0; border:1px solid var(--line); border-radius:9px; background:rgb(0 0 0 / 14%); }
+.legal-copy h3 { margin:12px 0 4px; color:#e4e4e7; font-size:12px; }
+.legal-copy p { margin:0 0 8px; color:#a1a1aa; font-size:11px; line-height:1.65; }
+.legal-check { display:flex; align-items:flex-start; gap:9px; color:#d4d4d8; font-size:11px; line-height:1.5; }
+.legal-check input { accent-color:#6366f1; margin-top:2px; }
+.tour-modal { width:min(520px,100%); }
+.faq-card { margin-top:18px; }
+.faq-card .panel-head h2 { display:flex; align-items:center; gap:7px; }
+.faq-item { border-top:1px solid var(--line); }
+.faq-item>button { width:100%; display:flex; justify-content:space-between; align-items:center; padding:14px 2px; border:0; background:none; color:#e4e4e7; text-align:left; cursor:pointer; font:inherit; font-size:12px; }
+.faq-item>p { margin:0 0 14px; color:#a1a1aa; font-size:11px; line-height:1.7; }
+.help-grid { margin-bottom:16px; }
+.payment-icon { display:grid; place-items:center; width:34px; height:34px; margin-bottom:12px; border:1px solid rgb(129 140 248 / 18%); border-radius:9px; background:rgb(99 102 241 / 10%); color:#a5b4fc; }
+.payment-grid .soft-card { min-height:230px; }
+.payment-grid .soft-card h2 { margin:8px 0; color:#f4f4f5; font-size:22px; }
+.payment-grid .soft-card h3 { margin:0 0 8px; color:#f4f4f5; }
+.payment-grid .soft-card p { min-height:57px; line-height:1.7; }
+.payment-summary { margin-top:18px; }
+.payment-usage { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:16px 0; }
+.payment-usage>div { padding:14px; border:1px solid var(--line); border-radius:8px; background:rgb(255 255 255 / 2%); }
+.payment-usage span,.payment-usage b { display:block; }
+.payment-usage span { color:#a1a1aa; font-size:11px; }
+.payment-usage b { margin-top:8px; color:#f4f4f5; font-size:14px; font-variant-numeric:tabular-nums; }
+.payment-note { display:flex; align-items:center; gap:7px; color:#71717a; font-size:10px; }
+.settings-tabs { display:flex; gap:6px; margin-bottom:15px; border-bottom:1px solid var(--line); }
+.settings-tabs button { padding:10px 13px; border:0; border-bottom:2px solid transparent; background:transparent; color:#a1a1aa; cursor:pointer; font:inherit; font-size:12px; }
+.settings-tabs button.active { color:#c7d2fe; border-bottom-color:#818cf8; }
+.connected-profile { display:flex; align-items:center; gap:11px; margin:14px 0; padding:12px; border:1px solid var(--line); border-radius:9px; background:rgb(255 255 255 / 2%); }
+.connected-profile b,.connected-profile small { display:block; }
+.connected-profile b { color:#f4f4f5; font-size:12px; }
+.connected-profile small { margin-top:4px; color:#a1a1aa; font-size:10px; }
+.lead-value { display:flex; align-items:center; margin-top:9px; color:#a5b4fc; font-size:10px; }
+.crm-history { max-height:120px; overflow:auto; white-space:pre-wrap; padding:10px; border:1px solid var(--line); border-radius:8px; background:#0e0e12; color:#a1a1aa; font:10px/1.6 ui-monospace,monospace; }
+.emoji-picker { display:flex; gap:5px; padding:8px 11px; border-top:1px solid var(--line); background:#111115; }
+.emoji-picker button { width:32px; height:32px; border:1px solid var(--line); border-radius:7px; background:rgb(255 255 255 / 3%); cursor:pointer; font-size:17px; }
+.reminder-modal { width:min(700px,100%); }
+@media print { .sidebar,.topbar,.page-heading,.payment-grid,.payment-note,.btn { display:none !important; } .main { margin:0 !important; } .payment-summary { border:0 !important; background:white !important; color:black !important; } }
 .btn-outline, .filter-btn, .select-button { color: #d4d4d8; border-color: var(--line); background: rgb(255 255 255 / 3%); }
 .btn-outline:hover:not(:disabled), .filter-btn:hover:not(:disabled), .select-button:hover { background: rgb(255 255 255 / 7%); border-color: rgb(255 255 255 / 16%); color: #fafafa; }
 .input-search, .chat-search { color: #71717a; border-color: var(--line); background: rgb(255 255 255 / 3%); }

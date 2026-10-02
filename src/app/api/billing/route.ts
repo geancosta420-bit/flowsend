@@ -1,8 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { createSubscription, planCatalog } from "@/lib/billing/plans";
-import { getCurrentUser } from "@/lib/auth/server";
-import { readStore, updateStore } from "@/lib/storage/db";
+import { NextResponse } from "next/server";
+import { planCatalog } from "@/lib/billing/plans";
+import { readStore } from "@/lib/storage/db";
 
 export async function GET() {
   const store = await readStore();
@@ -21,27 +19,6 @@ export async function GET() {
   });
 }
 
-export async function PATCH(req: NextRequest) {
-  const user = await getCurrentUser(req);
-  if (!user) return NextResponse.json({ error: "Sessão expirada." }, { status: 401 });
-  if (user.role !== "admin") return NextResponse.json({ error: "Somente um administrador pode ativar ou alterar o plano." }, { status: 403 });
-
-  try {
-    const { plan } = z.object({ plan: z.enum(["STARTER", "PRO", "SCALE"]) }).parse(await req.json());
-    const subscription = await updateStore((store) => {
-      const current = store.subscription;
-      const limits = createSubscription(plan);
-      store.subscription = {
-        ...limits,
-        messagesUsed: current.messagesUsed,
-        prospectsUsed: current.prospectsUsed,
-        reservedMessages: current.reservedMessages,
-        usagePeriod: current.usagePeriod,
-      };
-      return store.subscription;
-    });
-    return NextResponse.json({ subscription });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof z.ZodError ? error.issues[0]?.message : "Não foi possível alterar o plano." }, { status: 400 });
-  }
+export async function PATCH() {
+  return NextResponse.json({ error: "A alteração de plano exige um provedor de pagamentos configurado e confirmação da cobrança." }, { status: 503 });
 }

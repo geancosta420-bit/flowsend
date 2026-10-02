@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ChartNoAxesCombined, ChevronLeft, FileText, HelpCircle, KanbanSquare, Layers, LayoutDashboard, LogOut, MessageCircle, PanelLeftClose, Plug, Send, Settings, Shield, Users } from "lucide-react";
+import { CalendarDays, ChartNoAxesCombined, ChevronLeft, FileText, HelpCircle, KanbanSquare, Layers, LayoutDashboard, LogOut, MessageCircle, PanelLeftClose, Plug, Send, Settings, Shield, Users, CreditCard } from "lucide-react";
 import { navGroups } from "@/lib/data";
 import type { PlanId } from "@/lib/billing/plans";
 
-const icons = { dashboard: LayoutDashboard, contacts: Users, lists: Layers, campaigns: Send, crm: KanbanSquare, messages: MessageCircle, templates: FileText, calendar: CalendarDays, reports: ChartNoAxesCombined, integrations: Plug, settings: Settings, userAdmin: Shield };
+const icons = { dashboard: LayoutDashboard, contacts: Users, lists: Layers, campaigns: Send, crm: KanbanSquare, messages: MessageCircle, templates: FileText, calendar: CalendarDays, reports: ChartNoAxesCombined, integrations: Plug, settings: Settings, userAdmin: Shield, billing: CreditCard, help: HelpCircle };
 type Account = { id: string; name: string; email: string; role: "admin" | "user" };
 type Billing = { plan: PlanId; planName: string; maxMessages: number; maxProspects: number; messagesUsed: number; prospectsUsed: number; whatsappUsed: number; maxWhatsapp: number };
 
@@ -25,7 +25,7 @@ export function Sidebar({ open, onClose, account, onLogout, billing }: { open: b
     <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
       <Link href="/" className="brand"><span className="brand-mark">F</span><span>flow<span className="brand-light">send</span><small>SALES PLATFORM</small></span></Link>
       <button className="mobile-close" onClick={onClose}><PanelLeftClose size={17} /></button>
-      <button className="workspace"><span className="workspace-avatar">A</span><span><b>Acme Studio</b><small>Plano {billing?.planName || "Starter"}</small></span><ChevronLeft size={15} className="rotate" /></button>
+      <Link href="/configuracoes" className="workspace"><span className="workspace-avatar">A</span><span><b>Acme Studio</b><small>Plano {billing?.planName || "Starter"}</small></span><ChevronLeft size={15} className="rotate" /></Link>
       {navGroups.map((group) => {
         const links = group.links.filter((item) => item.href !== "/usuarios" || account?.role === "admin");
         return <div className="nav-group" key={group.label}><div className="nav-label">{group.label}</div>{links.map((item) => {
@@ -38,7 +38,7 @@ export function Sidebar({ open, onClose, account, onLogout, billing }: { open: b
           <div className="usage-title"><span>Plano {billing?.planName || "Starter"}</span><Link href="/planos">Ver planos</Link></div>
           {billing ? <><UsageBar label="Mensagens" used={billing.messagesUsed} limit={billing.maxMessages} /><UsageBar label="Prospects" used={billing.prospectsUsed} limit={billing.maxProspects} /><small>{billing.whatsappUsed} de {billing.maxWhatsapp} conexões WhatsApp</small></> : <small>Carregando consumo do mês…</small>}
         </section>
-        <button className="nav-item"><HelpCircle size={17} />Central de ajuda</button>
+        <Link className="nav-item" href="/ajuda" onClick={onClose}><HelpCircle size={17} />Central de ajuda</Link>
         <div className="profile"><div className="profile-avatar">{initials}</div><div><b>{account?.name || "Usuário"}</b><small>{account?.role === "admin" ? "Administrador" : "Usuário"}</small></div><button aria-label="Sair" title="Sair" onClick={onLogout}><LogOut size={17} /></button></div>
       </div>
     </aside>

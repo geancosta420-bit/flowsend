@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Check, Crown, MessageSquareText, Search, Smartphone } from "lucide-react";
+import Link from "next/link";
 import { planCatalog, type PlanId } from "@/lib/billing/plans";
-import { notifyBillingUpdated } from "@/lib/billing/client";
 
 type Billing = { plan: PlanId; messagesUsed: number; prospectsUsed: number; whatsappUsed: number };
 const planOrder: PlanId[] = ["STARTER", "PRO", "SCALE"];
@@ -13,32 +13,11 @@ export default function PlansPage() {
   const [billing, setBilling] = useState<Billing | null>(null);
   const [requestedPlan, setRequestedPlan] = useState<PlanId | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     fetch("/api/billing").then((response) => response.json()).then((data) => setBilling(data.subscription)).catch(() => {});
     fetch("/api/auth/me").then((response) => response.json()).then((data) => setIsAdmin(data.user?.role === "admin")).catch(() => {});
   }, []);
-
-  async function activatePlan() {
-    if (!requestedPlan) return;
-    setBusy(true);
-    setNotice("");
-    try {
-      const response = await fetch("/api/billing", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: requestedPlan }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Não foi possível alterar o plano.");
-      setBilling((current) => current ? { ...current, ...data.subscription } : current);
-      notifyBillingUpdated();
-      setNotice(`Plano ${planCatalog[requestedPlan].name} ativado para este workspace.`);
-      setRequestedPlan(null);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Falha ao alterar o plano.");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   const selected = requestedPlan ? planCatalog[requestedPlan] : null;
   return <>
@@ -63,8 +42,7 @@ export default function PlansPage() {
         </article>;
       })}
     </section>
-    {notice && <div className="connection-state plan-notice">{notice}</div>}
     <p className="pricing-footnote">Os limites mensais reiniciam no primeiro dia de cada mês. O upgrade é ativado após a confirmação da assinatura.</p>
-    {selected && <div className="modal-backdrop" role="presentation" onMouseDown={() => !busy && setRequestedPlan(null)}><section className="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="plan-request-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => !busy && setRequestedPlan(null)} aria-label="Fechar">×</button><div className="eyebrow">UPGRADE PARA {selected.name.toUpperCase()}</div><h2 id="plan-request-title">{isAdmin ? "Confirme a ativação" : "Solicite mais capacidade"}</h2><p>{isAdmin ? `Ative ${selected.name} por ${selected.priceLabel} somente após confirmar o pagamento. A troca altera os limites do workspace imediatamente; a cobrança online ainda não está integrada.` : `O plano ${selected.name} custa ${selected.priceLabel}. Peça ao administrador do workspace para confirmar o pagamento e ativar a assinatura.`}</p><div className="upgrade-modal-actions"><button className="btn btn-outline" disabled={busy} onClick={() => setRequestedPlan(null)}>Cancelar</button>{isAdmin ? <button className="btn btn-primary" disabled={busy} onClick={activatePlan}>{busy ? "Ativando…" : "Confirmar ativação"}</button> : <button className="btn btn-primary" onClick={() => setRequestedPlan(null)}>Entendi</button>}</div></section></div>}
+    {selected && <div className="modal-backdrop" role="presentation" onMouseDown={() => setRequestedPlan(null)}><section className="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="plan-request-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setRequestedPlan(null)} aria-label="Fechar">×</button><div className="eyebrow">UPGRADE PARA {selected.name.toUpperCase()}</div><h2 id="plan-request-title">{isAdmin ? "Revise pagamento e limites" : "Solicite mais capacidade"}</h2><p>{isAdmin ? `O plano ${selected.name} custa ${selected.priceLabel} e inclui ${selected.maxWhatsapp} conexões, ${selected.maxMessages.toLocaleString("pt-BR")} mensagens e ${selected.maxProspects >= 999_999 ? "prospects ilimitados" : `${selected.maxProspects.toLocaleString("pt-BR")} prospects`}. O pagamento online não está conectado; os limites não serão alterados até a confirmação por um provedor.` : `O plano ${selected.name} custa ${selected.priceLabel}. Peça ao administrador do workspace para revisar as opções de pagamento.`}</p><div className="upgrade-modal-actions"><button className="btn btn-outline" onClick={() => setRequestedPlan(null)}>Fechar</button><Link className="btn btn-primary" href="/pagamentos" onClick={() => setRequestedPlan(null)}>Ver pagamentos</Link></div></section></div>}
   </>;
 }

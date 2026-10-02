@@ -28,3 +28,18 @@ export async function proxyContactsToFastify(request: NextRequest) {
     return NextResponse.json({ error: "O serviço Fastify de contatos está indisponível. Inicie a API e o PostgreSQL." }, { status: 503 });
   }
 }
+
+export async function resolveContactInFastify(input: { contactId?: string; phone?: string; name?: string; createIfMissing?: boolean }) {
+  if (!process.env.DATABASE_URL) return null;
+  const token = process.env.FASTIFY_INTERNAL_TOKEN;
+  if (!token) throw new Error("Configure FASTIFY_INTERNAL_TOKEN para localizar contatos no PostgreSQL.");
+  const base = (process.env.FASTIFY_API_URL || `http://127.0.0.1:${process.env.FASTIFY_PORT || "3001"}`).replace(/\/$/, "");
+  const response = await fetch(`${base}/contacts/resolve`, { method: "POST", headers: { "x-internal-api-key": token, "content-type": "application/json" }, body: JSON.stringify(input), cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok) {
+    const error = new Error(typeof payload.error === "string" ? payload.error : "Não foi possível localizar o contato.") as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+}

@@ -175,6 +175,37 @@ app.post("/contacts", async (request, reply) => {
   } catch (error) { request.log.error({ err: error }, "contact create failed"); return reply.code(error.code === "P2002" ? 409 : 500).send({ error: error.code === "P2002" ? "Já existe um contato com esse WhatsApp." : "Não foi possível criar contato." }); }
 });
 
+app.post("/contacts/resolve", async (request, reply) => {
+  if (!authorized(request, reply)) return;
+  const parsed = z.object({ contactId: z.string().min(1).optional(), phone: z.string().trim().min(10).max(24).optional(), name: z.string().trim().min(1).max(120).optional(), createIfMissing: z.boolean().default(false) }).refine((value) => Boolean(value.contactId || value.phone), "Informe o contato ou telefone.").safeParse(request.body);
+  if (!parsed.success) return reply.code(400).send({ error: parsed.error.issues[0]?.message || "Dados inválidos." });
+  const { contactId, phone, name, createIfMissing } = parsed.data;
+  const organizationId = orgId();
+  try {
+    let row = contactId
+      ? await prisma.contact.findFirst({ where: { id: contactId, organizationId } })
+      : null;
+    if (!row && phone) {
+      const normalized = normalizePhone(phone);
+      row = await prisma.contact.findFirst({ where: { organizationId, OR: [{ phoneNormalized: normalized }, { phone: { contains: normalized } }, { remoteJid: { contains: normalized } }] }, orderBy: { updatedAt: "desc" } });
+      // Imported numbers sometimes omit Brazil's country code; try the local DDD+number too.
+      if (!row && normalized.startsWith("55") && normalized.length >= 12) {
+        const local = normalized.slice(2);
+        row = await prisma.contact.findFirst({ where: { organizationId, OR: [{ phoneNormalized: local }, { phone: { contains: local } }, { remoteJid: { contains: local } }] }, orderBy: { updatedAt: "desc" } });
+      }
+      if (!row && createIfMissing) {
+        await ensureOrganization(organizationId);
+        row = await prisma.contact.create({ data: { organizationId, name: name || phone, phone: `+${normalized}`, phoneNormalized: normalized, source: "manual", status: "NOVO" } });
+      }
+    }
+    if (!row) return reply.code(404).send({ error: "Contato não encontrado." });
+    return reply.send({ ...row, status: statusMap[row.status], leadValue: Number(row.leadValue), lastContact: row.lastContact?.toISOString() || "—" });
+  } catch (error) {
+    request.log.error({ err: error }, "contact resolve failed");
+    return reply.code(error.code === "P2002" ? 409 : 500).send({ error: "Não foi possível localizar o contato." });
+  }
+});
+
 app.patch("/contacts/:id", async (request, reply) => {
   if (!authorized(request, reply)) return;
   const params = z.object({ id: z.string().min(1) }).safeParse(request.params);
